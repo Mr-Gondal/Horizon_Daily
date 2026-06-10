@@ -14,8 +14,10 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from config import (
+    DEVPOST_PAGES,
     MAX_CODING_CONTESTS,
     MAX_HACKATHONS,
+    MAX_UPCOMING_HACKATHONS,
     REQUEST_TIMEOUT,
     TZ_LABEL,
     TZ_OFFSET_HOURS,
@@ -99,49 +101,84 @@ def fetch_leetcode() -> list[str]:
 
 # ---------------------------------------------------------------------------
 # Devpost (online hackathons — tech, AI, creative, design, social good...)
+#
+# We scan several pages and TWO statuses:
+#   * "open"     -> submissions in progress right now (you can still join)
+#   * "upcoming" -> registration open / starting soon (get in early!)
 # ---------------------------------------------------------------------------
-def fetch_devpost() -> list[str]:
-    lines: list[str] = []
-    try:
-        r = requests.get(
-            "https://devpost.com/api/hackathons",
-            params={"challenge_type[]": "online", "status[]": "open"},
-            headers=HEADERS,
-            timeout=REQUEST_TIMEOUT,
-        )
-        r.raise_for_status()
-        hackathons = r.json().get("hackathons", [])
-
-        for h in hackathons[:MAX_HACKATHONS]:
-            title = html.escape(h.get("title", "Hackathon"))
-            url = h.get("url", "https://devpost.com/hackathons")
-            prize = h.get("prize_amount", "")
-            # prize_amount comes with embedded HTML like <span>$10,000</span>
-            if prize:
-                import re
-
-                prize = re.sub(r"<[^>]+>", "", prize)
-            deadline = (
-                h.get("submission_period_dates", "") or ""
-            ).strip()
-            themes = ", ".join(
-                t.get("name", "") for t in (h.get("themes") or [])[:3]
+def _fetch_devpost_pages(status: str, pages: int) -> list[dict]:
+    """Fetch multiple pages of Devpost hackathons for a given status."""
+    results: list[dict] = []
+    for page in range(1, pages + 1):
+        try:
+            r = requests.get(
+                "https://devpost.com/api/hackathons",
+                params={
+                    "challenge_type[]": "online",
+                    "status[]": status,
+                    "page": page,
+                },
+                headers=HEADERS,
+                timeout=REQUEST_TIMEOUT,
             )
+            r.raise_for_status()
+            batch = r.json().get("hackathons", [])
+            if not batch:
+                break
+            results.extend(batch)
+        except Exception as e:  # noqa: BLE001
+            print(f"[competitions] Devpost {status} page {page} failed: {e}")
+            break
+    return results
 
-            line = f"🌐 <a href=\"{url}\">{title}</a>"
-            details = []
-            if prize:
-                details.append(f"💰 {html.escape(prize)}")
-            if deadline:
-                details.append(f"📅 {html.escape(deadline)}")
-            if details:
-                line += "\n     " + " · ".join(details)
-            if themes:
-                line += f"\n     🏷 {html.escape(themes)}"
-            lines.append(line)
-    except Exception as e:  # noqa: BLE001
-        print(f"[competitions] Devpost failed: {e}")
-    return lines
+
+def _format_devpost(h: dict) -> str:
+    import re
+
+    title = html.escape(h.get("title", "Hackathon"))
+    url = h.get("url", "https://devpost.com/hackathons")
+    prize = h.get("prize_amount", "")
+    # prize_amount comes with embedded HTML like <span>$10,000</span>
+    if prize:
+        prize = re.sub(r"<[^>]+>", "", prize)
+    deadline = (h.get("submission_period_dates", "") or "").strip()
+    time_left = (h.get("time_left_to_submission", "") or "").strip()
+    org = (h.get("organization_name", "") or "").strip()
+    regs = h.get("registrations_count", 0)
+    themes = ", ".join(t.get("name", "") for t in (h.get("themes") or [])[:3])
+
+    line = f"🌐 <a href=\"{url}\">{title}</a>"
+    if org:
+        line += f" <i>by {html.escape(org)}</i>"
+    details = []
+    if prize:
+        details.append(f"💰 {html.escape(prize)}")
+    if deadline:
+        details.append(f"📅 {html.escape(deadline)}")
+    if details:
+        line += "\n     " + " · ".join(details)
+    extras = []
+    if time_left:
+        extras.append(f"⏳ {html.escape(time_left)}")
+    if regs:
+        extras.append(f"👥 {regs:,} registered")
+    if extras:
+        line += "\n     " + " · ".join(extras)
+    if themes:
+        line += f"\n     🏷 {html.escape(themes)}"
+    return line
+
+
+def fetch_devpost_open() -> list[str]:
+    """Hackathons whose submission window is open right now."""
+    hackathons = _fetch_devpost_pages("open", DEVPOST_PAGES)
+    return [_format_devpost(h) for h in hackathons[:MAX_HACKATHONS]]
+
+
+def fetch_devpost_upcoming() -> list[str]:
+    """Hackathons that haven't started yet — register now, start fresh."""
+    hackathons = _fetch_devpost_pages("upcoming", DEVPOST_PAGES)
+    return [_format_devpost(h) for h in hackathons[:MAX_UPCOMING_HACKATHONS]]
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +187,8 @@ def fetch_devpost() -> list[str]:
 def get_section() -> str:
     cf = fetch_codeforces()
     lc = fetch_leetcode()
-    dp = fetch_devpost()
+    dp_open = fetch_devpost_open()
+    dp_upcoming = fetch_devpost_upcoming()
 
     parts: list[str] = []
 
@@ -158,11 +196,21 @@ def get_section() -> str:
         parts.append("<b>⚔️ Coding Contests (online, open worldwide)</b>")
         parts.extend(cf + lc)
 
-    if dp:
+    if dp_upcoming:
         if parts:
             parts.append("")
-        parts.append("<b>🚀 Online Hackathons (join from Pakistan 🇵🇰)</b>")
-        parts.extend(dp)
+        parts.append(
+            "<b>📝 Registration Open — Starting Soon (be an early bird!)</b>"
+        )
+        parts.extend(dp_upcoming)
+
+    if dp_open:
+        if parts:
+            parts.append("")
+        parts.append(
+            "<b>🚀 Hackathons In Progress (you can still join & submit)</b>"
+        )
+        parts.extend(dp_open)
 
     if not parts:
         return ""

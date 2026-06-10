@@ -18,7 +18,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from config import TZ_LABEL, TZ_OFFSET_HOURS
-from fetchers import competitions, ideas, knowledge, news
+from fetchers import ai, competitions, ideas, knowledge, news
 
 
 def build_digest() -> str:
@@ -34,6 +34,7 @@ def build_digest() -> str:
     sections = []
     for name, builder in (
         ("competitions", competitions.get_section),
+        ("ai", ai.get_section),
         ("news", news.get_section),
         ("ideas", ideas.get_section),
         ("knowledge", knowledge.get_section),

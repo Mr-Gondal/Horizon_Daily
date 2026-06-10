@@ -25,7 +25,11 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 # Limits per section (keep the digest readable)
 # ---------------------------------------------------------------------------
 MAX_CODING_CONTESTS = 6
-MAX_HACKATHONS = 6
+MAX_HACKATHONS = 12          # open-for-submission hackathons (Devpost)
+MAX_UPCOMING_HACKATHONS = 8  # registration open, not started yet (Devpost)
+DEVPOST_PAGES = 3            # how many Devpost API pages to scan
+MAX_AI_HACKATHONS = 6        # AI hackathons from lablab.ai
+MAX_AI_NEWS = 6              # AI news headlines
 MAX_NEWS_ITEMS = 8
 MAX_IDEAS_ITEMS = 8
 MAX_ON_THIS_DAY = 4

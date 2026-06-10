@@ -4,7 +4,8 @@ A GitHub Actions–powered bot that sends you a **daily Telegram digest** with:
 
 | Section | What you get | Sources |
 |---|---|---|
-| 🏁 **Competitions** | Online coding contests & hackathons you can join **from Pakistan 🇵🇰** (all online/worldwide) | Codeforces, LeetCode, Devpost |
+| 🏁 **Competitions** | Online coding contests + **two hackathon lists**: 📝 *registration open / starting soon* and 🚀 *in progress (still joinable)* — all online & open **from Pakistan 🇵🇰** | Codeforces, LeetCode, Devpost (multi-page scan) |
+| 🤖 **AI Corner** | Latest AI news + AI hackathons that hand out **free API credits** (OpenAI, Gemini, IBM, AMD…) | TechCrunch AI, The Verge AI, lablab.ai, Devpost (AI filter) |
 | 🌍 **World News & Events** | Top headlines on what's happening around the globe | BBC World, Al Jazeera |
 | 🧠 **Ideas & Perspectives** | Trending discussions, unique POVs, and ideas from people worldwide | Hacker News, Lobsters, r/Showerthoughts |
 | 📚 **Knowledge & Creativity** | Quote of the day, a surprising fact, "on this day" history, and a daily creative prompt | ZenQuotes, Useless Facts, Wikipedia |
@@ -61,7 +62,14 @@ After that, it runs automatically **every day at 8:00 AM PKT**.
 Everything lives in [`src/config.py`](src/config.py):
 
 - `COUNTRY` / `TZ_OFFSET_HOURS` — your location & timezone
-- `MAX_*` values — how many items per section (keep the digest short or go big)
+- `MAX_HACKATHONS` (default 12) — in-progress hackathons shown
+- `MAX_UPCOMING_HACKATHONS` (default 8) — registration-open/upcoming hackathons shown
+- `DEVPOST_PAGES` (default 3) — how many Devpost pages to scan (more pages = more results)
+- `MAX_AI_NEWS` / `MAX_AI_HACKATHONS` — size of the AI Corner section
+- Other `MAX_*` values — items per section (keep the digest short or go big)
+
+> Long digests are automatically split into multiple Telegram messages, so
+> raising the limits is safe.
 
 **Change the delivery time:** edit the cron in
 [`.github/workflows/daily-digest.yml`](.github/workflows/daily-digest.yml).
@@ -109,7 +117,8 @@ daily-digest-bot/
     ├── config.py             # all settings in one place
     ├── telegram_sender.py    # sends (and auto-splits) long messages
     └── fetchers/
-        ├── competitions.py   # Codeforces + LeetCode + Devpost
+        ├── competitions.py   # Codeforces + LeetCode + Devpost (open & upcoming)
+        ├── ai.py             # AI news + lablab.ai + Devpost AI hackathons
         ├── news.py           # BBC + Al Jazeera RSS
         ├── ideas.py          # Hacker News + Lobsters + Showerthoughts
         └── knowledge.py      # quote, fact, history, creative prompt
